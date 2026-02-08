@@ -1,32 +1,18 @@
-# Skywalker Roaster
+# Skywalker Roaster ESP32
 
-This is a guide to for connecting the Skywalker/ITOP MTCR(SkItop) Roaster connected to Artisan. In addition to the arduino sketches the data I've collected about the roaster is available here.
+This is a fork to build on the original idea.
+This is one way to connect a ESP32 to the skywaler roaster. This documents how i connect my roaster to the roaster.
+The goal has been to use the RMT peripheral for both TX and RX to achieve non-blocking communication, enabling faster communication with Artisan and potentially more stable wireless communication in the future.
 
-⚠️WARNING 👉 DO NOT LEAVE ROASTER UNATTENDED⚠️
 
-The easiest way to get this working is to
-1. Connect USB cable to [Arduino](#arduino-instructions) with correct jumpers
-2. Load [Sketch](#arduino-instructions) onto arduino
-3. Load [config[](#artisan-upload-config) into artisan-scope
-4. Plug in arduino to computer through arduino USB cable(NOT the one we jumpered)
-5. Plug in arduino to roaster where the controller was connected with the USB cable we jumpered
-6. In artisan [config](#artisan-manually-setting-config) set the correct device
-7. click/tap the on button in artisan-scope and temps should be available and roaster is controllable
-   
-## Arduino Sketches
-
-### SkyCommand
-This is full control of the skywalker roaster via Artisan. The sketch does the bare minimum to emulate TC4. Exercise caution, there are minimal safety features built in. As with every other coffee roaster..
+Keeping some of the original readme for some referenses, with some changes. WORK IN PROGRESS
 
 ⚠️WARNING 👉 DO NOT LEAVE ROASTER UNATTENDED⚠️
 
 The sketch requires that it see a command from Artisan at least every 10 seconds or it will shut down. The READ commands from artisan will keep it going. I think it's ok to run, but what do I know? I'm just a nerd on the internet. Use this at your own risk.
 
 #### Hardware
-I use an arduino leonardo with a USB cable soldered to the Vin, GND, and Digital Pins 2 and 3. That's it.
-![PXL_20231206_190446798 MP](https://github.com/jmoore52/SkywalkerRoaster/assets/25308608/d03d5bd3-de08-4ee2-986c-d3fef3e07c47)
-
-The black cable goes to the USB port on the back of the roaster (that's only USB in form.. it's not actually using USB communications), the white one to my computer running Artisan.
+I use an ESP32C3 Super mini
 
 ## Arduino Instructions
 
@@ -198,11 +184,3 @@ To collect the data I attached a logic probe to the controller and captured a pr
 ### Other Observations
 - The roaster is looking for a USB ground, if nothing is there it will not run, if you unplug the controller or arduino during a roast, everything shuts down, this is actually kind of dangerous as the beans inside could ignite without movement or fan.
 - Some testing unplugging the signal pins in the arduino yielded that the roaster will not run without constant signals from these pins either, but the user can plug back in and start controlling the roaster again. (granted you don't hit the 10sec limit from the sketch)
-
-# Discord
-
-There's a skywalker specific discord (not mine) that seems to have a small but growing and enthusiastic group. I'm on there. Come share your experiences with this roaster. [Skywalker Roaster Community](https://discord.com/invite/DtcfzX2Q)
-
-# Bug Fixes and Improvements
-
-I'll spend some more time on things when I can, but pull requests are always welcome and appreciated.
