@@ -1,3 +1,8 @@
+// Skycommand.ino
+// Non-blocking RMT roaster communication + TMC2209 motor + AHT20 ambient
+// Works with RoasterTransmitter and RoasterReceiver
+// Tested with ESP32C3
+
 #include <Arduino.h>
 #include <limits.h>
 #include <Wire.h>
@@ -7,16 +12,25 @@
 #include "RoasterReceiver.h"
 #include "RoasterTransmitter.h"
 
-// --- Pins ---
+//--- Pins ---
 constexpr int LED_PIN      = 10;
 constexpr int OE_PIN       = 2;   // TXS0102 OE
 constexpr int RMT_TX_PIN   = 0;   // to roaster
 constexpr int RMT_RX_PIN   = 1;   // from roaster
 constexpr int UART_RX_PIN  = 20;  // TMC2209 UART
 constexpr int UART_TX_PIN  = 21;  // TMC2209 UART
+constexpr int I2C_SDA_PIN  = 8;   // Standard SDA på ESP32-C3
+constexpr int I2C_SCL_PIN  = 9;   // Standard SCL på ESP32-C3
+bool ahtFound = false;
+// constexpr int LED_PIN      = 3;
+// constexpr int OE_PIN       = 2;   // TXS0102 OE
+// constexpr int RMT_TX_PIN   = 10;   // Flyttad till GPIO 8
+// constexpr int RMT_RX_PIN   = 5;   // Flyttad till GPIO 9
+// constexpr int UART_RX_PIN  = 6;   // TMC2209 UART (fri pin)
+// constexpr int UART_TX_PIN  = 7;   // TMC2209 UART (fri pin)
 
 // --- Message lengths ---
-// ROASTER_LEN comes from RoasterReceiver.h
+// ROASTER_LEN comes from RoasterReceiver_clean.h
 constexpr size_t CONTROLLER_LEN  = 6; // bytes (to roaster)
 
 // --- Indices in controller buffer ---
@@ -192,31 +206,53 @@ void handleREAD() {
 void getArtisanMessage() {
   static char line[96];
   static uint8_t idx = 0;
+  static bool overflow = false;
+
   while (Serial.available() > 0) {
     char c = (char)Serial.read();
     if (c == '\r') continue;
+    
     if (c == '\n') {
-      line[idx] = '\0';
+      if (!overflow && idx > 0) {
+        line[idx] = '\0';
+        
+        // 1. Förbered pekare och extrahera värde efter semikolon
+        char* p = line;
+        while (*p == ' ' || *p == '\t') ++p;
+        if (*p != '\0') {
+          uint8_t value = 0;
+          char* sep = strchr(p, ';');
+          if (sep) { 
+            *sep = '\0'; 
+            value = (uint8_t)atoi(sep + 1); 
+          }
+
+          // 2. Parsning
+          if      (strcmp(p, "READ")   == 0) { handleREAD(); }
+          else if (strcmp(p, "OT1")    == 0) { handleHEAT(value); }
+          else if (strcmp(p, "OT2")    == 0) { handleVENT(value); }
+          else if (strcmp(p, "OFF")    == 0) { shutdown(); }
+          else if (strcmp(p, "ESTOP")  == 0) { eStop(); }
+          else if (strcmp(p, "DRUM")   == 0) { handleDRUM(value); }
+          else if (strcmp(p, "FILTER") == 0) { handleFILTER(value); }
+          else if (strcmp(p, "COOL")   == 0) { handleCOOL(value); }
+          else if (strcmp(p, "CHAN")   == 0) { handleCHAN(); }
+          else if (strcmp(p, "UNITS")  == 0) { if (sep && *(sep+1)) CorF = *(sep+1); }
+        }
+      }
       idx = 0;
-      char* p = line;
-      while (*p == ' ' || *p == '\t') ++p;
-      if (*p == '\0') continue;
-      uint8_t value = 0;
-      char* sep = strchr(p, ';');
-      if (sep) { *sep = '\0'; value = (uint8_t)atoi(sep + 1); }
-      if      (strcmp(p, "READ")   == 0) { handleREAD(); }
-      else if (strcmp(p, "OT1")    == 0) { handleHEAT(value); }
-      else if (strcmp(p, "OT2")    == 0) { handleVENT(value); }
-      else if (strcmp(p, "OFF")    == 0) { shutdown(); }
-      else if (strcmp(p, "ESTOP")  == 0) { eStop(); }
-      else if (strcmp(p, "DRUM")   == 0) { handleDRUM(value); }
-      else if (strcmp(p, "FILTER") == 0) { handleFILTER(value); }
-      else if (strcmp(p, "COOL")   == 0) { handleCOOL(value); }
-      else if (strcmp(p, "CHAN")   == 0) { handleCHAN(); }
-      else if (strcmp(p, "UNITS")  == 0) { if (sep && *(sep+1)) CorF = *(sep+1); }
+      overflow = false;
       continue;
     }
-    if (idx < sizeof(line) - 1) line[idx++] = c; else idx = 0;
+
+    if (overflow) continue; // Ignorera resten av raden om den spillt över
+
+    if (idx < sizeof(line) - 1) {
+      line[idx++] = c;
+    } else {
+      overflow = true; // Markera att raden var för lång
+      idx = 0;
+    }
   }
 }
 
@@ -329,6 +365,7 @@ void setup_motor() {
 
 // Ambient
 void readAmbient() {
+  if (!ahtFound) return;
   static unsigned long lastStart = 0;
   static bool pending = false;
   static unsigned long startTime = 0;
@@ -369,8 +406,9 @@ void setup() {
   pinMode(OE_PIN, OUTPUT);  digitalWrite(OE_PIN, HIGH);
   pinMode(LED_PIN, OUTPUT);
 
-  Wire.begin();
-  if (!aht20.begin()) { Serial.println("AHT20 not found."); }
+  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  ahtFound = aht20.begin();
+  if (!ahtFound) { Serial.println("AHT20 not found."); }
 
   setup_motor();
   shutdown();
@@ -380,7 +418,7 @@ void loop() {
   getArtisanMessage();
 
   // Receive from roaster
-  roasterRX.update();
+  roasterRX.update(); 
   if (roasterRX.available()) {
     roasterRX.getMessage(receiveBuffer);
     temp = calculateTemp();
