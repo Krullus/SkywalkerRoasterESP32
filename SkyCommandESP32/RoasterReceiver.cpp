@@ -1,74 +1,80 @@
 // RoasterReceiver.cpp
 #include "RoasterReceiver.h"
 
-#if ROASTER_DEBUG
-  #define RDBG(...)        Serial.printf(__VA_ARGS__)
-  #define RDBG_PRINT(x)    Serial.print(x)
-  #define RDBG_PRINTLN(x)  Serial.println(x)
-#else
-  #define RDBG(...)        do{}while(0)
-  #define RDBG_PRINT(x)    do{}while(0)
-  #define RDBG_PRINTLN(x)  do{}while(0)
-#endif
-
-RoasterReceiver* RoasterReceiver::instance = nullptr;
-
 RoasterReceiver::RoasterReceiver(int pin)
 : rxPin(pin),
   rmtActive(false),
-  newMessageFlag(false),
-  lastFallingTime(0),
   messageReady(false),
-  num_symbols(RX_MAX_SYMBOLS)
-{
-  instance = this;
+  num_symbols(RX_MAX_SYMBOLS),
+  capturedCount(0),
+  rawReady(false)
+{}
+
+void RoasterReceiver::rxTaskTrampoline(void* arg) {
+  static_cast<RoasterReceiver*>(arg)->rxTaskLoop();
 }
 
 void RoasterReceiver::begin() {
   pinMode(rxPin, INPUT);
 
-  // RMT RX channel at 1 MHz tick
+  // RMT RX channel at 1 MHz tick (2 blocks = 96 symbols on ESP32-C3)
   rmtInit(rxPin, RMT_RX_MODE, RMT_MEM_NUM_BLOCKS_2, RMT_CLK_HZ);
 
-  // End a capture when the line has been idle ~> message gap
-  rmtSetRxMaxThreshold(rxPin, RoasterProto::PREAMBLE_MAX_US + 1000); // ~9500us
-  rmtSetRxMinThreshold(rxPin, 2); // your glitch filter
+  // Klipper vid ~8001 µs tystnad (~3 ms marginal i paket-gapet)
+  rmtSetRxMaxThreshold(rxPin, RoasterProto::PREAMBLE_MAX_US + 1);
+  rmtSetRxMinThreshold(rxPin, 2);
 
-  // Start first capture right away
+  // Starta första fångsten
   num_symbols = RX_MAX_SYMBOLS;
   rmtReadAsync(rxPin, symbols, &num_symbols);
   rmtActive = true;
 
-  // No GPIO interrupts needed
+  // Liten stack (2048 bytes) räcker nu när tasken bara gör memcpy + omstart!
+  xTaskCreate(rxTaskTrampoline, "RmtRxTask", 2048, this, 5, nullptr);
 }
 
+// Högprioriterad bakgrunds-task: Bara kopiera rådata och starta om RMT!
+void RoasterReceiver::rxTaskLoop() {
+  for (;;) {
+    if (rmtActive && rmtReceiveCompleted(rxPin)) {
+      rmtActive = false;
+      size_t count = num_symbols;
 
-void RoasterReceiver::update() {
-  // If capture finished, parse and restart immediately
-  if (rmtActive && rmtReceiveCompleted(rxPin)) {
-    rmtActive = false;
-
-    if (num_symbols > 0 && num_symbols <= RX_MAX_SYMBOLS) {
-      if (find7ByteMessage(symbols, num_symbols, receiveBuffer)) {
-        memcpy(lastMessage, receiveBuffer, ROASTER_LEN);
-        messageReady = true;
+      // Kopiera bara över om vi fick tillräckligt med symboler för ett paket (minst 56)
+      // och om update() inte precis håller på att läsa capturedSymbols
+      if (count >= (ROASTER_LEN * 8) && count <= RX_MAX_SYMBOLS && !rawReady) {
+        memcpy(capturedSymbols, symbols, count * sizeof(rmt_data_t));
+        capturedCount = count;
+        rawReady = true; // Signalera till vanliga loop() att rådata finns att parsa
       }
+
+      // Starta om RMT omedelbart inför nästa paket!
+      num_symbols = RX_MAX_SYMBOLS;
+      rmtReadAsync(rxPin, symbols, &num_symbols);
+      rmtActive = true;
+    } else if (!rmtActive) {
+      num_symbols = RX_MAX_SYMBOLS;
+      rmtReadAsync(rxPin, symbols, &num_symbols);
+      rmtActive = true;
     }
 
-    // Restart capture for next message window
-    num_symbols = RX_MAX_SYMBOLS;
-    rmtReadAsync(rxPin, symbols, &num_symbols);
-    rmtActive = true;
-  }
-
-  // If for some reason we ever stopped, kick it again
-  if (!rmtActive) {
-    num_symbols = RX_MAX_SYMBOLS;
-    rmtReadAsync(rxPin, symbols, &num_symbols);
-    rmtActive = true;
+    vTaskDelay(1); // Sov 1 ms
   }
 }
 
+// Körs i vanliga loop(): Parsar symbolerna utan tidspress
+void RoasterReceiver::update() {
+  if (!rawReady) return;
+
+  // Parsa råsymbolerna som tasken kopierade undan
+  if (find7ByteMessage(capturedSymbols, capturedCount, receiveBuffer)) {
+    memcpy(lastMessage, receiveBuffer, ROASTER_LEN);
+    messageReady = true;
+  }
+
+  // Släpp låset så tasken får lägga in nästa råfångst
+  rawReady = false;
+}
 
 bool RoasterReceiver::available() const { return messageReady; }
 
@@ -77,29 +83,6 @@ void RoasterReceiver::getMessage(uint8_t *dest) {
   memcpy(dest, lastMessage, ROASTER_LEN);
   messageReady = false;
 }
-
-// void IRAM_ATTR RoasterReceiver::isrRouter() {
-//   if (instance) instance->onEdge();
-// }
-
-// // CHANGE interrupt: measure LOW pulse width (FALLING -> RISING), active low signal
-// void IRAM_ATTR RoasterReceiver::onEdge() {
-//   const unsigned long now = micros();
-//   const int lvl = digitalRead(rxPin);
-//   if (lvl == LOW) {
-//     lastFallingTime = now;
-//   } else {
-//     const unsigned long lowWidth = now - lastFallingTime;
-//     static volatile unsigned long lastPreambleAt = 0;
-//     // preamble LOW window
-//     if (lowWidth >= RoasterProto::PREAMBLE_MIN_US && lowWidth <= RoasterProto::PREAMBLE_MAX_US) {
-//       if (now - lastPreambleAt > RoasterProto::PREAMBLE_COOLDOWN_US) {
-//         newMessageFlag = true;
-//         lastPreambleAt = now;
-//       }
-//     }
-//   }
-// }
 
 bool RoasterReceiver::decodeBit(const rmt_data_t &s, uint8_t &bit) const {
   uint16_t low = 0, high = 0;
@@ -112,9 +95,7 @@ bool RoasterReceiver::decodeBit(const rmt_data_t &s, uint8_t &bit) const {
     return false;
   }
 
-  // Bit 1
   if (low >= RoasterProto::BIT1_MIN_US && low <= RoasterProto::BIT1_MAX_US) { bit = 1; return true; }
-  // Bit 0
   if (low >= RoasterProto::BIT0_MIN_US && low <= RoasterProto::BIT0_MAX_US) { bit = 0; return true; }
   return false;
 }
@@ -141,12 +122,10 @@ bool RoasterReceiver::find7ByteMessage(rmt_data_t *sym, size_t count, uint8_t *b
     return calculateChecksum(buffer);
   };
 
-  // Fast path: exact 56 symbols
   if (count == total_bits) {
     return tryDecode(0);
   }
 
-  // Fallback scanning
   for (size_t i = 0; i <= count - total_bits; ++i) {
     if (tryDecode(i)) return true;
   }
