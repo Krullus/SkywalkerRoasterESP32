@@ -26,8 +26,6 @@ private:
   static constexpr uint16_t PACKET_GAP_US     = 11000; // packet-gap
   bool hasSent = false;
   int txPin;
-  // uint32_t intervalMs = 600;
-  // unsigned long lastSendMs = 0;
 
   // Buffer: preamble + up to 8 bytes (LSB-first) + terminal high
   static constexpr size_t MAX_BYTES = 8;
