@@ -7,7 +7,7 @@ RoasterTransmitter::RoasterTransmitter(int pin)
 bool RoasterTransmitter::begin() {
   pinMode(txPin, OUTPUT);
   digitalWrite(txPin, HIGH); // idle HIGH
-  if (!rmtInit(txPin, RMT_TX_MODE, RMT_MEM_NUM_BLOCKS_1, RMT_TX_CLK_HZ)) {
+  if (!rmtInit(txPin, RMT_TX_MODE, RMT_MEM_NUM_BLOCKS_2, RMT_TX_CLK_HZ)) {
     return false;
   }
   rmtSetEOT(txPin, HIGH); // end-of-transmission idle level
@@ -38,7 +38,7 @@ size_t RoasterTransmitter::buildSymbols(const uint8_t* buffer, size_t len) {
       }
     }
   }
-
+  sym[idx++] = (rmt_data_t){PACKET_GAP_US, 1, 0, 1};
   // // Terminal: hold HIGH replaced by eot
   // sym[idx++] = (rmt_data_t){0, 1, 0, 1};
   return idx;
@@ -55,15 +55,6 @@ bool RoasterTransmitter::send(const uint8_t* buffer, size_t length) {
 }
 
 void RoasterTransmitter::service(const uint8_t* buf, size_t len) {
-  static unsigned long lastPollMs = 0;
-  unsigned long now = millis();
-
-  if (now - lastSendMs < intervalMs) return;
-  if (now - lastPollMs < 100) return;  // max 1 kHz polling
-  lastPollMs = now;
-  yield();
   if (!ready()) return;
   if (!send(buf, len)) return;
-  yield();
-  lastSendMs = now;
 }
