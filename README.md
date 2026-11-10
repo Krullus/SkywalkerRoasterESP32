@@ -8,10 +8,16 @@ A modern, non-blocking firmware implementation to connect an **ESP32-C3 Super Mi
 The sketch requires continuous commands from Artisan to stay alive; otherwise, it triggers a safety shutdown. Use at your own risk.
 
 ---
-## Level Shifting (TXS0102)
-To ensure reliable signal translation and protect the 3.3V ESP32-C3 GPIO pins from higher logic levels on the roaster side, a **TXS0102** bidirectional voltage-level translator is used. 
-- **OE_PIN (GPIO 2)** is connected to the Output Enable pin of the TXS0102 module to control the translator state.
+## Level Shifting
 
+To ensure reliable signal translation and protect the 3.3V ESP32-C3 GPIO pins from higher logic levels on the roaster I used a **TXS0102** bidirectional voltage-level translator is used. 
+But there is probably better ways to do this. I also tested with at pair of NPN transistor (BC548), for fun, that seams to work but haven't tested it during a roast. I will just stick to TXS0102 for now.
+
+## TMC2209
+
+I used bidirectional communication as described by Peter Polidoro. Thanks!
+This way the code don't need to send every step manually and can just send the target speed.
+https://github.com/janelia-arduino/TMC2209
 
 ## 🛠️ Hardware & Pinout
 This project is built and tested specifically for the **ESP32-C3 Super Mini**, paired with a **TMC2209 stepper motor driver** communicating over UART to handle drum rotation efficiently without blocking the main loop.
