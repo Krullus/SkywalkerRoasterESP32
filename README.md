@@ -45,9 +45,18 @@ This project is built and tested specifically for the **ESP32-C3 Super Mini**, p
 
 ---
 
-## 📊 Protocol & Message Structure (Reverse Engineering)
 
-Communication relies on pulse-width modulation over a single GPIO pin (preamble ~7.5ms, bit '1' ~1.5ms, bit '0' ~0.6ms, bit-gap ~0.75ms). Both devices transmit packets independently without traditional handshakes, secured via a checksum in the final byte.
+## 📊 Protocol & Message Structure
+
+Communication relies on pulse-width modulation over dedicated GPIO pins, handled asynchronously via the ESP32's native **RMT (Remote Control Transceiver) peripheral** and FreeRTOS tasks to completely eliminate blocking delays. 
+
+The physical layer uses precise timing:
+* **Preamble:** ~7.0–8.0 ms
+* **Bit '1':** ~1.2–1.8 ms
+* **Bit '0':** ~0.5–0.9 ms
+* **Bit Gap:** ~700–850 µs
+
+Both devices transmit packets independently without traditional handshakes, secured via a checksum in the final byte.
 
 ### Controller (Sent to Roaster - 6 bytes, LSB)
 | Position | Function | Value / Range |
