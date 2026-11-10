@@ -16,6 +16,19 @@ public:
   // void setIntervalMs(uint32_t ms) { intervalMs = ms; }
   void service(const uint8_t* buf, size_t len);    // periodic non-blocking send
 
+// ==================================================================
+// Avlyssning av kontrollen
+// ==================================================================
+//         LÖPANDE STATISTIK (MEDEL, MIN, MAX & ANTAL)
+// ==================================================================
+// - Preamble (låg del):     Medel:  7545 us  [Min:  7538, Max:  7548]
+// - Preamble (hög del/gap): Medel:  3898 us  [Min:  3895, Max:  3906]
+// - Bit-gap (mellan bitar): Medel:   754 us  [Min:   740, Max:   763]
+// - Bit '0' (låg tid):      Medel:   628 us  [Min:   620, Max:   642]
+// - Bit '1' (låg tid):      Medel:  1508 us  [Min:  1500, Max:  1511]
+// - Paket-gap (slutvila):   Medel: 10941 us  [Min: 10939, Max: 10949]
+// ==================================================================
+
 private:
   // --- Protocol timing (ticks at 1 µs per tick) ---
   static constexpr uint16_t PREAMBLE_LOW_US   = 7500; // active LOW preamble
@@ -26,6 +39,8 @@ private:
   static constexpr uint16_t PACKET_GAP_US     = 11000; // packet-gap
   bool hasSent = false;
   int txPin;
+  // uint32_t intervalMs = 600;
+  // unsigned long lastSendMs = 0;
 
   // Buffer: preamble + up to 8 bytes (LSB-first) + terminal high
   static constexpr size_t MAX_BYTES = 8;
