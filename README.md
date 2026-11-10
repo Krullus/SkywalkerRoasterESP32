@@ -1,186 +1,83 @@
-# Skywalker Roaster ESP32
+# Skywalker Roaster ESP32 (RMT Non-Blocking Fork)
 
-This is a fork to build on the original idea.
-This is one way to connect a ESP32 to the skywaler roaster. This documents how i connect my roaster to the roaster.
-The goal has been to use the RMT peripheral for both TX and RX to achieve non-blocking communication, enabling faster communication with Artisan and potentially more stable wireless communication in the future.
+A modern, non-blocking firmware implementation to connect an **ESP32-C3 Super Mini** to the Skywalker coffee roaster and integrate it seamlessly with **Artisan Scope**.
 
+> **WORK IN PROGRESS** — This project is a rewrite/fork of the original concept, focusing on robust, asynchronous communication using the ESP32's native RMT (Remote Control Transceiver) peripheral and FreeRTOS.
 
-Keeping some of the original readme for some referenses, with some changes. WORK IN PROGRESS
+⚠️ **WARNING: DO NOT LEAVE ROASTER UNATTENDED!** 
+The sketch requires continuous commands from Artisan to stay alive; otherwise, it triggers a safety shutdown. Use at your own risk.
 
-⚠️WARNING 👉 DO NOT LEAVE ROASTER UNATTENDED⚠️
-
-The sketch requires that it see a command from Artisan at least every 10 seconds or it will shut down. The READ commands from artisan will keep it going. I think it's ok to run, but what do I know? I'm just a nerd on the internet. Use this at your own risk.
-
-#### Hardware
-I use an ESP32C3 Super mini
-
-## Arduino Instructions
-
-1. Install ArduinoIDE
-
-2. Find any old USB cable. Cut it up in half, and prune a bit off the plastic sleeving. You should find four smaller wires. Connect these wires to your Arduino as such either through soldering or just inserting it into the slots:
-
-      Green -> Digital 2  
-      White -> Digital 3  
-      Red -> VIN  
-      Black -> GND
-
-    Breadboard example:
-   
-    <img src="https://github.com/paoyong/SkywalkerRoaster/assets/6934989/5fe7940b-152d-4d47-bfcc-7e6246f82b3e" width=25% height=25%>
-
-    Soldering example (more secure):
-   
-    <img src="https://github.com/paoyong/SkywalkerRoaster/assets/6934989/145cbf62-6af3-4d41-9fd1-579d95e46408" width=25% height=25%>
-    <img src="https://github.com/paoyong/SkywalkerRoaster/assets/6934989/9b231e14-a04a-4ed5-8e4a-6b9e65c11487" width=25% height=25%>
-    <img src="https://github.com/paoyong/SkywalkerRoaster/assets/6934989/c7235c87-918b-47ea-be88-b844c39c72b2" width=25% height=25%>
-3. Download repository and extract.
-![image](Images/download-repo-extract.png)
-
-1. Connect your Arduino into your computer.
-
-    <img src="https://github.com/paoyong/SkywalkerRoaster/assets/6934989/706ed2f0-08be-4660-a2da-edd83a547d8f" width=25% height=25%>
-
-2. Go to your SkywalkerRoaster-main folder that you extracted. Click on the SkyCommand folder then double click on `SkyCommand.ino` (should open automatically in ArduinoIDE)
-
-3. Click on the check mark to do a precompile, this lets you know if the code will work on your board.
-4.  Click on your Arduino device and press Upload, the console on the bottomr should give you a success message. Some boards output debug, but if there is no error it probably succeeded.
-![image](Images/click-arduino-device-upload.png)
-
-## Hardware Pinout Examples
-Arduino Micro
-<!-- <img src="images/ardunio_micro_pinout.jpg" alt="micro pinout" width="400"/> -->
-![image](Images/ardunio_micro_pinout.jpg)
-
-## Artisan Upload Config
-We can upload a preset config in Artisan Scope
-Help -> Load Settings...
-![image](Images/load_aset_file_menu.png)
-
-This is a default file with the most basic settings.
-[basic-skitop-artisan-settings.aset](ArtisanConfigs/basic-skitop-artisan-settings.aset)
-
-look in [ArtisanConfigs](ArtisanConfigs/) for other configs users have created.
+---
+## Level Shifting (TXS0102)
+To ensure reliable signal translation and protect the 3.3V ESP32-C3 GPIO pins from higher logic levels on the roaster side, a **TXS0102** bidirectional voltage-level translator is used. 
+- **OE_PIN (GPIO 2)** is connected to the Output Enable pin of the TXS0102 module to control the translator state.
 
 
-## Artisan Manually Setting Config
-Here's how I have Artisan configured.
-Config -> Device
-![image](Images/artisan_config_tc4.png)
+## 🛠️ Hardware & Pinout
+This project is built and tested specifically for the **ESP32-C3 Super Mini**, paired with a **TMC2209 stepper motor driver** communicating over UART to handle drum rotation efficiently without blocking the main loop.
 
-After pressing OK, an additional dialogue box will appear, select your Arduino. If you're not sure which is your Arduino, disconnect and reconnect it and the dialogue box should change.
-You can also navigate here by going to Config -> Port...
-Comm Port will be different depending on OS you are running and which USB port you are plugged into.
+| Component / Function | ESP32-C3 Pin | Description |
+| :--- | :--- | :--- |
+| **LED_PIN** | GPIO 10 | Status LED |
+| **OE_PIN** | GPIO 2 | TXS0102 Level Shifter Output Enable |
+| **RMT_TX_PIN** | GPIO 0 | Transmit data to roaster (RMT) |
+| **RMT_RX_PIN** | GPIO 1 | Receive data from roaster (RMT) |
+| **UART_RX_PIN** | GPIO 20 | TMC2209 Stepper Driver UART RX |
+| **UART_TX_PIN** | GPIO 21 | TMC2209 Stepper Driver UART TX |
+| **I2C_SDA_PIN** | GPIO 8 | AHT20 Temperature/Humidity Sensor SDA |
+| **I2C_SCL_PIN** | GPIO 9 | AHT20 Temperature/Humidity Sensor SCL |
 
-![image](Images/artisan_config_ports.png)
+---
 
-Config -> Events -> Config
-![image](Images/artisan_config_events_config.png)
-```
-DRUM;100
-```
+## 🚀 Quick Start & Installation
 
-Config -> Events -> Buttons
-![image](Images/artisan_config_events_buttons.png)
-```
-DRUM;100
-```
-```
-DRUM;0
-```
-```
-FILTER;1
-```
-etc..
+1. Install the **Arduino IDE** (with the ESP32 v3.x core supporting the modern RMT API).
+2. Install required libraries (e.g., SparkFun AHT20 sensor library and TMC2209 if applicable).
+3. Clone or download this repository or download the files in SkyCommandESP32
+4. Open the project folder in the Arduino IDE, select **ESP32C3 Dev Module** under Tools, and upload the sketch.
 
-Config -> Events -> Sliders
-![image](Images/artisan_config_events_sliders.png)
-```
-OT2;{}
-```
-```
-OT1;{}
-```
-### Troubleshooting
-- check all connections, unplug and re-plug in the USB cables, also check pins and solder points
-- swap out USB cables, the arduino to computer cable is important also
-- you will need to have drivers for your arduino unit on some machines so if you're running on a different machine where you set up the arduino, just install arduino IDE and install the drivers with the IDE to ensure you can connect
-- make sure you are on the tested or later version of artisan
+---
 
-### Testing/Compatibility
-#### Artisan Version
-- 2.10.2
-#### Working Hardware Combos
-- Leonardo
-  - Windows ?
-- Micro
-  - Windows 11
-  - MacOS
-- Nano ATMEGA
-  - Linux Mint
+## 📊 Protocol & Message Structure (Reverse Engineering)
 
-- Uno Wifi R4
-  - not yet
+Communication relies on pulse-width modulation over a single GPIO pin (preamble ~7.5ms, bit '1' ~1.5ms, bit '0' ~0.6ms, bit-gap ~0.75ms). Both devices transmit packets independently without traditional handshakes, secured via a checksum in the final byte.
 
-### SkywalkerSpy
-This provides logging only for Artisan. It uses two pins to monitor the Tx lines from both the roaster and the controller. It alternates between reading the values as quickly as possible. When any input comes in on the serial line the sketch will respond with the status of the roaster in the format TEMP,HEAT DUTY,VENT DUTY
-
-## Roaster Hardware
-This has been super fun to study. Here's what I've learned so far.
-
-The controller has a [js32t031f5s7 microcontoller](http://www.honor-ic.com/Product/ProScreenDetail?pid=118).
-
-I am unsure what kind of microcontroller is inside the roaster. It is marked FMD N3hWIKH and I was unable to locate any datasheets for it.
-
-![image](https://github.com/jmoore52/SkywalkerRoaster/assets/25308608/9667b4ed-4d56-44d6-9c13-1d5d7ac2737e)
-
-The roaster uses a thermistor as a temperature probe which is connected to the microcontroller as shown here.
-
-![image](https://github.com/jmoore52/SkywalkerRoaster/assets/25308608/b5e678ef-a7f5-44a4-83ef-9cf92c3277f3)
-
-It appears to use a voltage divider with two taps, one passing through a 1k resistor and the other through a 2k resistor. I'm not the strongest hardware guy by any means, but I don't understand why. If this look familiar to you, please let me know what we're looking at here.
-
-
-### Normal Operation
-The Skywalker roaster is rather simple all logic lives in the controller. The roaster simply interprets the signals sent by the controller and sets things accordingly. The roaster appears to shut down if it does not receive a control message in 1 second. The controller reads the temperature values from the roaster and then sends instructions to the roaster. There does not appear to be any kind of communications protocol, each device appears to send messages to the other device roughly every 10 milliseconds. There are no requests, responses, acknowledgements, etc..  Simply data bit banged on a GPIO line.
-
-## Messages
-The messages sent by each device are rather simple in structure. I've determined what most everything does. To the logic analyzer, the messages appear as follows. This is an example of the message the roaster sends. The controller's messages look identical other than being 8 bits shorter.
-
-![image](https://github.com/jmoore52/SkywalkerRoaster/assets/25308608/ba62c969-7bf0-4eb5-afd7-8f788b759ce2)
-
-Interpreting the messages can be done by simply measuring the logic LOW pulses. The beginning preamble is roughly 7.5ms, a binary 1 is represented by a ~1.5ms pulse, a binary 0 is ~600 microseconds, and the logic HIGH between bits is roughly 750 microseconds.
-
-![image](https://github.com/jmoore52/SkywalkerRoaster/assets/25308608/82005860-83ae-40a5-8574-5bc535f85420)
-
-### Controller
-The controller transmits a 6 byte message in LSB order. Both messages contain a checksum and will be ignored if the checksum is not correct.
-
-| Position | Purpose | Value |
-|----------|---------|-------|
-| 0 | Fan Duty Cycle | 0 to 100
-| 1 | Filter | Appears to only be values 0,1,2,3,4 |
+### Controller (Sent to Roaster - 6 bytes, LSB)
+| Position | Function | Value / Range |
+|----------|----------|----------------|
+| 0 | Fan Duty Cycle | 0 to 100 (steps of 5) |
+| 1 | Filter | Values 0, 1, 2, 3, 4 |
 | 2 | Bean Cooling Fan | 0 or 100 |
 | 3 | Drum | 0 or 100 |
-| 4 | Heater Duty Cylce | 0 to 100 |
-| 5 | Checksum | |
+| 4 | Heater Duty Cycle | 0 to 100 (steps of 5) |
+| 5 | Checksum | Sum of bytes 0–4 |
 
-For the Fan and Heater, duty cycles increment by 5. Sending other values will be ignored.
+### Roaster (Sent from Roaster - 7 bytes, LSB)
+| Position | Function | Description |
+|----------|----------|-------------|
+| 0, 1 | Value A | Highly correlated with displayed temperature (requires polynomial conversion) |
+| 2, 3 | Value B | Secondary ADC reading / channel |
+| 4 | - | Reserved / typically 0 |
+| 5 | Motor Current / Drum Load | Indicates motor activity and drum load status |
+| 6 | Checksum | Sum of bytes 0–5 |
 
-### Roaster
-The roaster transmits a 7 byte message in LSB Order.
-|Position| Name| Value|
-|--------|-----|------|
-|0,1| Value A | I'm not _really_ sure what this value is. I suspect it is perhaps a voltage as read by an ADC on the microcontroller|
-|2,3|Value B|Again, not _really_ sure what the value really represents. I think it is another ADC value.|  
-| 4 | Mystery byte | Always a 0.|
-| 5 | Mystery byte | Pretty much always a 1. I've not seen much of a correlation to hardware that seems to indicate what this may represent.|
-|6 | Checksum||
+---
 
-Value A and Value B are my biggest open question about this roaster. What is it doing?! There is a very strong linear correlation between the two values and the temperature displayed on the controller screen. However I could not determine what I would consider to be an "elegant" solution for converting these values to the temperature. Rather, I fit a 4th degree polynomial to the data (see `data/model3.py` but please keep in mind it's been a long minute since I've run a regression. ChatGPT wrote a lot of that with some guidance.)
+## ⚙️ Artisan Setup
 
-To collect the data I attached a logic probe to the controller and captured a preheat cycle. I extracted all the messages from the capture, wrote an arduino sketch to replay the bytes in the messages back to the controller, and coded up a quick and dirty python script to push each message to the arduino and allow me to enter the value shown on the screen. The results of this process are in `Data/RealLabeledTemperatures.txt`
+1. **Load Preset Configuration:**
+   Go to `Help -> Load Settings...` and select `ArtisanConfigs/basic-skitop-artisan-settings.aset`.
+2. **Manual Events & Sliders:**
+   * **Buttons:** 
+     * `DRUM;100`
+     * `DRUM;0`
+     * `FILTER;1`
+   * **Sliders:** 
+     * `OT2;{}`
+     * `OT1;{}`
 
-### Other Observations
-- The roaster is looking for a USB ground, if nothing is there it will not run, if you unplug the controller or arduino during a roast, everything shuts down, this is actually kind of dangerous as the beans inside could ignite without movement or fan.
-- Some testing unplugging the signal pins in the arduino yielded that the roaster will not run without constant signals from these pins either, but the user can plug back in and start controlling the roaster again. (granted you don't hit the 10sec limit from the sketch)
+---
+
+## 🔍 What's New in This Fork?
+* **RMT Peripheral Integration:** Uses hardware-based RMT for both transmission and reception to completely eliminate timing bottlenecks.
+* **FreeRTOS Background Task:** Rx handling runs in a dedicated high-priority task, ensuring packet gaps are never missed—solving previous freezing issues during rapid sequential commands (like step-adjusting the fan or sending several commands at once when dropping the beans).
