@@ -15,17 +15,26 @@
 #define ROASTER_DEBUG_PRINT_SYMBOLS 0
 #endif
 
+// ==================================================================
+//         STATISTIK (MEDEL, MIN, MAX & ANTAL)
+// ==================================================================
+// - Preamble (låg del):     Medel:  7475 us  [Min:  7459, Max:  7513] 
+// - Preamble (hög del/gap): Medel:  3869 us  [Min:  3858, Max:  3889] 
+// - Bit-gap (mellan bitar): Medel:   751 us  [Min:   737, Max:   765] 
+// - Bit '0' (låg tid):      Medel:   620 us  [Min:   607, Max:   628] 
+// - Bit '1' (låg tid):      Medel:  1492 us  [Min:  1478, Max:  1511] 
+// - Packet-gap (slutvila):  Medel: 10853 us  [Min: 10829, Max: 10883] 
+
 // Protocol parameters (µs at 1 MHz)
 namespace RoasterProto {
-  constexpr uint16_t PREAMBLE_MIN_US = 7000;  // accept 7.0 ms
-  constexpr uint16_t PREAMBLE_MAX_US = 8000;  // accept 8.0 ms
-  constexpr uint16_t BIT_GAP_MIN_US  = 700;   // ~768 µs nominal
+  constexpr uint16_t PREAMBLE_MIN_US = 7000;
+  constexpr uint16_t PREAMBLE_MAX_US = 8000;
+  constexpr uint16_t BIT_GAP_MIN_US  = 700;   
   constexpr uint16_t BIT_GAP_MAX_US  = 850;
-  constexpr uint16_t BIT0_MIN_US     = 500;   // ~605 µs nominal
+  constexpr uint16_t BIT0_MIN_US     = 500;   
   constexpr uint16_t BIT0_MAX_US     = 900;
-  constexpr uint16_t BIT1_MIN_US     = 1200;  // ~1480 µs nominal
+  constexpr uint16_t BIT1_MIN_US     = 1200;
   constexpr uint16_t BIT1_MAX_US     = 1800;
-  constexpr uint16_t PREAMBLE_COOLDOWN_US = 5000;
 }
 
 // Receiver configuration (ESP32-C3: 2 blocks * 48 = 96 symbols max)
@@ -43,7 +52,7 @@ public:
 private:
   int rxPin;
   volatile bool rmtActive;
-  bool messageReady;
+  volatile bool messageReady;
 
   // RMT hårdvarans mottagningsbuffert
   size_t num_symbols;
