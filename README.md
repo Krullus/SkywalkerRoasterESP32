@@ -62,13 +62,16 @@ Communication relies on pulse-width modulation over a single GPIO pin (preamble 
 ### Roaster (Sent from Roaster - 7 bytes, LSB)
 | Position | Function | Description |
 |----------|----------|-------------|
-| 0, 1 | Value A | Highly correlated with displayed temperature (requires polynomial conversion) |
-| 2, 3 | Value B | Secondary ADC reading / channel |
-| 4 | Still a mystery byte | Reserved / typically 0 |
+| 0, 1 | Value A (`intx`) | Combined 16-bit raw value used for lower/standard temperature range (via 3rd-degree polynomial) |
+| 2, 3 | Value B (`inty`) | Combined 16-bit raw value used for higher temperature range (via 3rd-degree polynomial) |
+| 4 | Reserved / Mystery | Still a mystery byte, typically 0 |
 | 5 | Motor Current / Drum Load | Indicates motor activity and drum load status |
 | 6 | Checksum | Sum of bytes 0–5 |
 
 ---
+
+#### Temperature Conversion Logic
+The firmware combines bytes `[0,1]` into `intx` and bytes `[2,3]` into `inty`. Depending on the threshold (`intx > 836 && inty > 221`), the code automatically switches between two different 3rd-degree polynomial equations to calculate an accurate temperature (`v`), which is then passed through a median and EMA filter for stability.
 
 ## ⚙️ Artisan Setup
 
