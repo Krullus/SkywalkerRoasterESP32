@@ -6,8 +6,8 @@
 #include <Arduino.h>
 #include <limits.h>
 #include <Wire.h>
-#include <SparkFun_Qwiic_Humidity_AHT20.h> // https://github.com/sparkfun/SparkFun_Qwiic_Humidity_AHT20_Arduino_Library
-#include <TMC2209.h>                       // https://github.com/janelia-arduino/TMC2209
+#include <SparkFun_Qwiic_Humidity_AHT20.h> //https://github.com/sparkfun/SparkFun_Qwiic_Humidity_AHT20_Arduino_Library
+#include <TMC2209.h> //https://github.com/janelia-arduino/TMC2209
 
 #include "RoasterReceiver.h"
 #include "RoasterTransmitter.h"
