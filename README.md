@@ -1,8 +1,9 @@
 # Skywalker Roaster ESP32 (RMT Non-Blocking Fork)
 
-A modern, non-blocking firmware implementation to connect an **ESP32-C3 Super Mini** to the Skywalker coffee roaster and integrate it seamlessly with **Artisan Scope**.
+A non-blocking firmware implementation to connect an **ESP32-C3 Super Mini** to the Skywalker coffee roaster and integrate it seamlessly with **Artisan Scope**.
 
 > **WORK IN PROGRESS** — This project is a rewrite/fork of the original concept, focusing on robust, asynchronous communication using the ESP32's native RMT (Remote Control Transceiver) peripheral and FreeRTOS.
+> 
 
 ⚠️ **WARNING: DO NOT LEAVE ROASTER UNATTENDED!** 
 The sketch requires continuous commands from Artisan to stay alive; otherwise, it triggers a safety shutdown. Use at your own risk.
@@ -54,7 +55,7 @@ Communication relies on pulse-width modulation over a single GPIO pin (preamble 
 | 0 | Fan Duty Cycle | 0 to 100 (steps of 5) |
 | 1 | Filter | Values 0, 1, 2, 3, 4 |
 | 2 | Bean Cooling Fan | 0 or 100 |
-| 3 | Drum | 0 or 100 |
+| 3 | Drum | Target RPM |
 | 4 | Heater Duty Cycle | 0 to 100 (steps of 5) |
 | 5 | Checksum | Sum of bytes 0–4 |
 
@@ -63,7 +64,7 @@ Communication relies on pulse-width modulation over a single GPIO pin (preamble 
 |----------|----------|-------------|
 | 0, 1 | Value A | Highly correlated with displayed temperature (requires polynomial conversion) |
 | 2, 3 | Value B | Secondary ADC reading / channel |
-| 4 | - | Reserved / typically 0 |
+| 4 | Still a mystery byte | Reserved / typically 0 |
 | 5 | Motor Current / Drum Load | Indicates motor activity and drum load status |
 | 6 | Checksum | Sum of bytes 0–5 |
 
