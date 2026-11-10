@@ -58,7 +58,7 @@ void RoasterReceiver::rxTaskLoop() {
       rmtActive = true;
     }
 
-    vTaskDelay(1); // Sov 1 ms
+    vTaskDelay(pdMS_TO_TICKS(1)); // Sov 1 ms
   }
 }
 
