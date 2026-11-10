@@ -24,7 +24,7 @@ This project is built and tested specifically for the **ESP32-C3 Super Mini**, p
 
 | Component / Function | ESP32-C3 Pin | Description |
 | :--- | :--- | :--- |
-| **LED_PIN** | GPIO 10 | Status LED |
+| **LED_PIN** | GPIO 10 | Status LED Not really using this but lights a LED :D|
 | **OE_PIN** | GPIO 2 | TXS0102 Level Shifter Output Enable |
 | **RMT_TX_PIN** | GPIO 0 | Transmit data to roaster (RMT) |
 | **RMT_RX_PIN** | GPIO 1 | Receive data from roaster (RMT) |
